@@ -1,0 +1,9 @@
+* text=auto
+*.py text eol=lf
+*.sql text eol=lf
+*.sh text eol=lf
+*.yml text eol=lf
+*.png binary
+*.webm binary
+.githooks/* text eol=lf
+dashboard-codex/** -text whitespace=cr-at-eol

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Fairway — Golf Intelligence</title>
+  <link rel="icon" href="/favicon.svg"><link rel="stylesheet" href="/styles.css">
+  <script defer src="/app.js"></script>
+</head>
+<body>
+<aside class="sidebar">
+  <a class="brand" href="#overview"><img src="/favicon.svg" alt="" width="38" height="38"><span>fairway<span class="brand-dot">.</span></span></a>
+  <div class="workspace-label">THE GOLF DATA PROJECT</div>
+  <nav aria-label="Main navigation">
+    <a href="#overview" data-view="overview" class="nav-item active"><span aria-hidden="true">▦</span> Overview <span class="nav-arrow">↗</span></a>
+    <a href="#tournaments" data-view="tournaments" class="nav-item"><span aria-hidden="true">⚑</span> Tournaments</a>
+    <a href="#players" data-view="players" class="nav-item"><span aria-hidden="true">◎</span> Players</a>
+  </nav>
+  <div class="sidebar-note"><span class="small-label">FROM TEE TO TABLE</span><div class="mini-course" aria-hidden="true"><i></i><b>⚑</b></div><h3>The whole season.<br>One clear picture.</h3><p>Explore the players, results, and moments behind the numbers.</p></div>
+  <div class="sidebar-bottom"><span class="status-dot"></span> <span>Slash Golf data</span><small>Chris’s golf analytics workspace</small></div>
+</aside>
+<div class="shell">
+  <header class="topbar"><div class="breadcrumb">Workspace <span>/</span> <strong id="breadcrumb">Overview</strong></div><div class="top-actions"><span class="local-pill"><span class="status-dot"></span> Local workspace</span><span class="avatar">CR</span></div></header>
+  <main>
+    <div class="heading-row"><div><div class="eyebrow" id="eyebrow">PGA TOUR · SEASON EXPLORER</div><h1 id="page-title">A season in focus.</h1><p id="page-description">Follow the field. Find the standouts. Explore every finish.</p></div><div class="heading-actions"><label class="season-control">Season <select id="season" aria-label="Season"><option>2026</option></select></label><button class="button refresh-button" id="refresh" aria-label="Refresh database data">↻ <span>Refresh</span></button><button class="button primary" id="export">↓ <span>Export CSV</span></button></div></div>
+    <div id="error" class="error-banner" role="alert" hidden></div>
+    <div id="loading" class="loading" role="status"><div class="loader"></div>Reading the latest results from your database…</div>
+    <div id="content" hidden></div>
+    <footer><span id="source-note">Source: Slash Golf · Completed events only</span><span id="freshness"></span></footer>
+  </main>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
+</body>
+</html>

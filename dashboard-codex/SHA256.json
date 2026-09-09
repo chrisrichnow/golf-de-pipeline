@@ -1,0 +1,26 @@
+﻿[
+    {
+        "file":  "app.js",
+        "sha256":  "66D23759CF4EC5306B6B723DBA8E31BA699F140E35567CF3C82CCA89D7B55FA0"
+    },
+    {
+        "file":  "check-dashboard.cjs",
+        "sha256":  "3C0600A0BE3FE504101A32C195C89DC7AAECF87B4B73556A52B3F961A1A133A8"
+    },
+    {
+        "file":  "favicon.svg",
+        "sha256":  "FE017E1E97E66FFE3FB37A23383AD47BFD152150458776C8DE60BEDC250B5873"
+    },
+    {
+        "file":  "index.html",
+        "sha256":  "BFD076D4BD8A79FE3372F1A564186C40E3130BCA2C87CB8F3911792D27C53548"
+    },
+    {
+        "file":  "server.py",
+        "sha256":  "DDCB5ADAE7A41CA6AE2E380B5A86AE2A015FA00FF6BF53FE0AB3B7641EC6C182"
+    },
+    {
+        "file":  "styles.css",
+        "sha256":  "5D30A86B3978B647D235CC73099366FA9FD95E051F812E1E893F3DF88CE6180B"
+    }
+]

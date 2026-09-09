@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clubhouse — golf warehouse</title>
+<link rel="stylesheet" href="/styles.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>⛳</text></svg>">
+</head>
+<body>
+<div class="app">
+
+  <nav class="sidebar">
+    <div class="wordmark">
+      <span class="wordmark-name">Clubhouse</span>
+      <span class="wordmark-sub">golf_data warehouse</span>
+    </div>
+
+    <ul class="nav" id="nav">
+      <li><button data-view="overview"    class="nav-btn is-active">Overview<em>what we have</em></button></li>
+      <li><button data-view="tournaments" class="nav-btn">Tournaments<em>events &amp; leaderboards</em></button></li>
+      <li><button data-view="players"     class="nav-btn">Players<em>season records</em></button></li>
+      <li><button data-view="scoring"     class="nav-btn">Scoring<em>round-level detail</em></button></li>
+      <li><button data-view="pipeline"    class="nav-btn">Pipeline<em>load &amp; quality</em></button></li>
+    </ul>
+
+    <div class="sidebar-foot">
+      <button id="theme-toggle" class="ghost-btn" type="button" aria-label="Toggle colour theme">
+        <span data-theme-label>Light mode</span>
+      </button>
+      <button id="refresh" class="ghost-btn" type="button">Re-read database</button>
+      <p class="foot-note" id="freshness">—</p>
+      <p class="foot-note foot-quiet">Read-only connection.<br>Port 8052.</p>
+    </div>
+  </nav>
+
+  <main class="main">
+    <header class="main-head">
+      <div>
+        <h1 id="view-title">Overview</h1>
+        <p id="view-sub" class="sub">—</p>
+      </div>
+    </header>
+    <div id="view" class="view" aria-live="polite">
+      <div class="loading">Reading the warehouse…</div>
+    </div>
+  </main>
+
+</div>
+
+<div id="tooltip" class="tooltip" hidden></div>
+<script src="/app.js"></script>
+</body>
+</html>

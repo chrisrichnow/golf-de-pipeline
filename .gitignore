@@ -1,0 +1,12 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+logs/
+node_modules/
+.npm-cache/
+.pytest_cache/
+.env.*
+!.env.example
+*.dump
+*.backup

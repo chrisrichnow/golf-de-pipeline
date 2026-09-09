@@ -1,0 +1,101 @@
+x-airflow-common: &airflow-common
+  build: .
+  image: golf-airflow:local
+  environment: &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER:-airflow}:${AIRFLOW_DB_PASSWORD:-airflow}@postgres-airflow/${AIRFLOW_DB_NAME:-airflow}
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__FERNET_KEY: ""
+    AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "false"
+    AIRFLOW__CORE__PARALLELISM: "2"
+    PYTHONPATH: /opt/airflow
+    GOLF_DB_HOST: postgres-golf
+    GOLF_DB_PORT: "5432"
+    GOLF_DB_NAME: ${GOLF_DB_NAME:-golf_data}
+    GOLF_DB_USER: ${GOLF_DB_USER:-golf}
+    GOLF_DB_PASSWORD: ${GOLF_DB_PASSWORD:-changeme}
+    SLASH_GOLF_API_KEY: ${SLASH_GOLF_API_KEY:-}
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./ingestion:/opt/airflow/ingestion
+    - ./sql:/opt/airflow/sql
+    - ./config:/opt/airflow/config
+    - ./pipeline.py:/opt/airflow/pipeline.py:ro
+    - ./logs:/opt/airflow/logs
+  user: "${AIRFLOW_UID:-50000}:0"
+  depends_on: &airflow-common-depends-on
+    postgres-airflow:
+      condition: service_healthy
+    postgres-golf:
+      condition: service_healthy
+
+services:
+  postgres-golf:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${GOLF_DB_USER:-golf}
+      POSTGRES_PASSWORD: ${GOLF_DB_PASSWORD:-changeme}
+      POSTGRES_DB: ${GOLF_DB_NAME:-golf_data}
+    ports:
+      - "${GOLF_DB_PORT:-5433}:5432"
+    volumes:
+      - golf_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${GOLF_DB_USER:-golf}"]
+      interval: 5s
+      retries: 5
+
+  postgres-airflow:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${AIRFLOW_DB_USER:-airflow}
+      POSTGRES_PASSWORD: ${AIRFLOW_DB_PASSWORD:-airflow}
+      POSTGRES_DB: ${AIRFLOW_DB_NAME:-airflow}
+    volumes:
+      - airflow_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${AIRFLOW_DB_USER:-airflow}"]
+      interval: 5s
+      retries: 5
+
+  airflow-init:
+    <<: *airflow-common
+    command: version
+    environment:
+      <<: *airflow-common-env
+      _AIRFLOW_DB_MIGRATE: "true"
+      _AIRFLOW_WWW_USER_CREATE: "true"
+      _AIRFLOW_WWW_USER_USERNAME: ${AIRFLOW_ADMIN_USER:-admin}
+      _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD:-admin}
+
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - "127.0.0.1:8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    healthcheck:
+      test: ["CMD-SHELL", 'airflow jobs check --job-type SchedulerJob --hostname "$${HOSTNAME}"']
+      interval: 30s
+      timeout: 15s
+      retries: 5
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+
+volumes:
+  golf_pg_data:
+  airflow_pg_data:

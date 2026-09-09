@@ -1,0 +1,14 @@
+{
+  "name": "golf-de-pipeline",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Browser verification and demo tools for a local golf data pipeline",
+  "scripts": {
+    "test:dashboard": "node dashboard/check-dashboard.cjs",
+    "test:clubhouse": "node dashboard-claude/check.cjs",
+    "demo:record": "node scripts/record-demo.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.58.2"
+  }
+}

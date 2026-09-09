@@ -1,0 +1,5 @@
+#!/bin/sh
+HASH=$(git log -1 --format="%h")
+DATE=$(git log -1 --format="%cd" --date=format:"%Y-%m-%d")
+MSG=$(git log -1 --format="%s")
+printf '\n## %s — %s\n`%s`\n' "$DATE" "$MSG" "$HASH" >> PROGRESSION.md
