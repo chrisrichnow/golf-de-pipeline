@@ -3,6 +3,10 @@ const { chromium } = require('playwright');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 
+const imagesReady = page => page.waitForFunction(() => [...document.images]
+  .filter(i => { const r = i.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight; })
+  .every(i => i.complete && i.naturalWidth > 0), null, {timeout:10000});
+
 (async () => {
   const output = path.resolve(__dirname, '../docs/portfolio');
   const scratch = path.resolve(__dirname, '../logs/demo-recording');
@@ -16,17 +20,20 @@ const path = require('node:path');
     page.on('pageerror',error=>errors.push(error.message));
     await page.goto('http://localhost:8050');
     await page.locator('#content:not([hidden])').waitFor();
-    await page.screenshot({path:path.join(output,'fairway-overview.png')});
+    await imagesReady(page);
+    await page.screenshot({path:path.join(output,'pga-analytics-overview.png')});
     await page.waitForTimeout(4000);
     await page.locator('[data-metric="wins"]').click();
     await page.waitForTimeout(3000);
     await page.locator('.bar-row').first().click();
-    await page.screenshot({path:path.join(output,'fairway-player.png')});
+    await imagesReady(page);
+    await page.screenshot({path:path.join(output,'pga-analytics-player.png')});
     await page.waitForTimeout(4000);
     await page.locator('tbody [data-event]').first().click();
     await page.waitForTimeout(3000);
     await page.locator('#tournament').selectOption({label:'Zurich Classic of New Orleans · Team event'});
-    await page.screenshot({path:path.join(output,'fairway-team.png')});
+    await imagesReady(page);
+    await page.screenshot({path:path.join(output,'pga-analytics-team.png')});
     await page.waitForTimeout(4000);
     await page.locator('nav [data-view="overview"]').click();
     await page.locator('#player-search').fill('Scheffler');

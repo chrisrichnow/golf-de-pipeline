@@ -10,3 +10,6 @@ node_modules/
 !.env.example
 *.dump
 *.backup
+
+# Downloaded PGA TOUR images; rebuild with scripts/sync_images.py
+dashboard/assets/

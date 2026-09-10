@@ -19,5 +19,13 @@ CREATE TABLE IF NOT EXISTS raw.data_golf_rankings (
     payload       JSONB NOT NULL          -- raw API response for a single player-rating record
 );
 
+CREATE TABLE IF NOT EXISTS raw.pga_tour_player_directory (
+    id            BIGSERIAL PRIMARY KEY,
+    ingested_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    source_run_id UUID NOT NULL,          -- one run = one full directory snapshot
+    payload       JSONB NOT NULL          -- one player record (id, names, country, countryFlag)
+);
+
+CREATE INDEX IF NOT EXISTS idx_pga_tour_player_directory_run ON raw.pga_tour_player_directory (source_run_id);
 CREATE INDEX IF NOT EXISTS idx_slash_golf_results_run ON raw.slash_golf_results (source_run_id);
 CREATE INDEX IF NOT EXISTS idx_data_golf_rankings_run ON raw.data_golf_rankings (source_run_id);

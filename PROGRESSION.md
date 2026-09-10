@@ -22,3 +22,6 @@ Development milestones before the standalone repository was created. Future comm
 - Re-ran all ten Python tests and the Fairway browser check successfully during portfolio preparation.
 
 - Portfolio follow-up verification: both Fairway and Clubhouse browser checks passed. Silent demo verified as 25.28 seconds at 1440x960.
+
+## 2026-09-09 — Publish golf ELT pipeline, dashboards, and portfolio demo
+`93cee11`

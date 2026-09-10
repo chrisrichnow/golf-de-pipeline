@@ -4,7 +4,7 @@ A local ELT pipeline that turns nested PGA Tour API responses into queryable pla
 
 **Python · PostgreSQL · SQL · Apache Airflow · Docker · JavaScript**
 
-![Fairway season overview](docs/portfolio/fairway-overview.png)
+![PGA Analytics season overview](docs/portfolio/pga-analytics-overview.png)
 
 [Watch the dashboard preview](docs/portfolio/dashboard-demo.webm) · [Two-minute demo walkthrough](docs/portfolio/demo-walkthrough.md) · [Resume and portfolio copy](docs/portfolio/resume-entry.md)
 
@@ -14,7 +14,7 @@ Tournament responses contain nested player/round data, tied finishes, withdrawal
 
 ## What is working
 
-Verified September 9, 2026:
+Verified September 10, 2026:
 
 | Dataset | Count |
 |---|---:|
@@ -23,7 +23,8 @@ Verified September 9, 2026:
 | Team-result records | 74 |
 | Players in individual-event analytics | 572 |
 | Quality checks before analytics commit | 7 |
-| Passing ingestion/transformation tests | 10 |
+| Passing ingestion/transformation tests | 13 |
+| Players with a country (PGA TOUR directory) | 572 of 572 |
 
 The source schedule was refreshed September 9; the latest loaded event ended August 30. Twelve scheduled events were still in the future. Counts describe this loaded dataset, not an independently verified official PGA statistics feed.
 
@@ -32,6 +33,7 @@ The source schedule was refreshed September 9; the latest loaded event ended Aug
 ```mermaid
 flowchart LR
     API[Slash Golf API] --> Python[Python ingestion]
+    Directory[PGA TOUR player directory] --> Python
     Python --> Raw[Postgres: raw JSONB]
     Python --> Ops[Transactional event checkpoints]
     Raw --> SQL[SQL transformations]
@@ -59,22 +61,24 @@ flowchart LR
 | `analytics.player_results` | One player per completed tournament |
 | `analytics.team_results` | One team per completed tournament |
 | `analytics.player_season_summary` | Individual-event season totals per player |
+| `raw.pga_tour_player_directory` | One PGA TOUR directory player per snapshot, in JSONB |
+| `analytics.player_directory` | Latest country and flag code per player ID |
 
 Result keys use IDs rather than names. Cleaned rows retain source run IDs and raw record IDs. The independent 2024 ingestion demo and learning-script snapshots remain in raw storage but are excluded from the completed-backfill analytics.
 
 ## Dashboards
 
-**Fairway** is the featured dashboard: season leaders, searchable/sortable player standings, tournament leaderboards, player history charts, and filtered CSV exports.
+**PGA Analytics** (formerly Fairway) is the featured dashboard: season leaders, searchable/sortable player standings, tournament leaderboards, player history charts, and filtered CSV exports. Players show official PGA TOUR headshots and tournaments show their official logos, matched by ID and cached locally by `scripts/sync_images.py` (images are not committed to this repo; players without a PGA TOUR photo, mostly amateurs and qualifiers, keep an initials badge). Every player also shows a country flag. Country comes from the PGA TOUR player directory, landed as raw JSON in `raw.pga_tour_player_directory` and modeled in `analytics.player_directory` (latest snapshot, joined by player ID). The directory is parsed from the public pgatour.com/players page rather than a documented API, so a failed refresh logs a warning and keeps the last snapshot instead of blocking results ingestion. The UI uses PGA TOUR navy and red with the TOUR shield as its brand mark; it is an unofficial fan project, not affiliated with or endorsed by the PGA TOUR.
 
 | Version | Folder | Default / suggested port |
 |---|---|---:|
-| Fairway working version | `dashboard/` | 8050 |
+| PGA Analytics working version | `dashboard/` | 8050 |
 | Preserved Codex baseline | `dashboard-codex/` | 8051 with `--port 8051` |
 | Clubhouse alternative | `dashboard-claude/` | 8052 |
 
 Clubhouse also exposes raw round-level data, course/round scoring views, and pipeline coverage. See [its README](dashboard-claude/README.md) for details and scoring caveats.
 
-![Fairway player history](docs/portfolio/fairway-player.png)
+![PGA Analytics player history](docs/portfolio/pga-analytics-player.png)
 
 The Codex baseline is preserved with hashes and screenshots. Keep future comparison work separate from `dashboard-codex/`. Both dashboard versions were built with AI assistance; the shared pipeline is the project's core engineering deliverable.
 
@@ -111,6 +115,18 @@ If this project already has its data, rebuild analytics **without API requests**
 
 ```powershell
 .\.venv\Scripts\python.exe pipeline.py --transform-only
+```
+
+Refresh player countries without any Slash Golf requests (full pipeline runs do this automatically):
+
+```powershell
+.\.venv\Scripts\python.exe pipeline.py --transform-only --refresh-players
+```
+
+Cache player headshots, tournament logos, and country flags (about 7 MB; rerun after new players or events load, already-cached images are skipped):
+
+```powershell
+.\.venv\Scripts\python.exe scripts/sync_images.py
 ```
 
 Start the featured dashboard:
@@ -177,7 +193,7 @@ npm.cmd run test:dashboard
 npm.cmd run test:clubhouse
 ```
 
-Fairway's check covers data counts, filtering, CSV contents, player/tournament navigation, team separation, pagination, refresh, mobile layouts, and database-error handling.
+PGA Analytics' check covers data counts, filtering, CSV contents, player/tournament navigation, team separation, pagination, refresh, mobile layouts, and database-error handling.
 
 Run demonstration SQL:
 
@@ -201,8 +217,8 @@ config/              Shared Python logging
 ingestion/          API ingestion and resumable backfill
 sql/                Schemas, transformations, checks, demo queries
 dags/               Airflow DAG
-dashboard/          Fairway UI and read-only local server
-dashboard-codex/    Preserved Fairway baseline
+dashboard/          PGA Analytics UI, read-only local server, cached images
+dashboard-codex/    Preserved original (Fairway) baseline
 dashboard-claude/   Clubhouse alternative dashboard
 tests/              Python ingestion/transformation tests
 scripts/            Demo recording utilities

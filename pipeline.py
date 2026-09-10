@@ -5,6 +5,7 @@ from datetime import date
 from dotenv import load_dotenv
 
 from ingestion.backfill_slash_golf import connect, run as backfill
+from ingestion.ingest_pga_tour_players import run as ingest_player_directory
 from ingestion.ingest_slash_golf import PROJECT_ROOT
 from config.logging_config import get_logger
 
@@ -61,6 +62,15 @@ def ingest(year=2026, as_of=None, max_requests=10, refresh_schedule=False):
     ))
     if result:
         raise RuntimeError('Ingestion has failed or deferred events; inspect ingestion logs.')
+    refresh_player_directory()
+
+
+def refresh_player_directory():
+    # Country is enrichment; a changed or unreachable page must not block results ingestion.
+    try:
+        ingest_player_directory()
+    except Exception as error:
+        log.warning('PGA TOUR player directory refresh skipped: %s', error)
 
 
 def main():
@@ -70,11 +80,15 @@ def main():
     parser.add_argument('--as-of', type=date.fromisoformat, default=date.today())
     parser.add_argument('--max-requests', type=int, default=10)
     parser.add_argument('--refresh-schedule', action='store_true')
+    parser.add_argument('--refresh-players', action='store_true',
+                        help='With --transform-only: refresh the PGA TOUR player directory (no Slash Golf calls).')
     args = parser.parse_args()
     if args.max_requests < 1:
         parser.error('--max-requests must be positive')
     if args.transform_only:
         setup_database()
+        if args.refresh_players:
+            refresh_player_directory()
     else:
         ingest(args.year, args.as_of, args.max_requests, args.refresh_schedule)
     transform()

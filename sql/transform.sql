@@ -59,6 +59,16 @@ SELECT org_id, season_year, tournament_id, payload #>> '{team,teamId}',
  payload #>> '{team,total}', analytics.score_to_par(payload #>> '{team,total}'),
  raw_id, source_run_id, ingested_at
 FROM analytics.completed_results WHERE payload ? 'team';
+-- Latest directory snapshot only; players absent from it simply have no country.
+CREATE OR REPLACE VIEW analytics.player_directory AS
+SELECT DISTINCT ON (payload ->> 'id') payload ->> 'id' AS player_id,
+ payload ->> 'displayName' AS display_name,
+ nullif(trim(payload ->> 'country'), '') AS country,
+ nullif(upper(trim(payload ->> 'countryFlag')), '') AS country_code,
+ ingested_at
+FROM raw.pga_tour_player_directory
+WHERE source_run_id = (SELECT source_run_id FROM raw.pga_tour_player_directory ORDER BY ingested_at DESC, id DESC LIMIT 1)
+ORDER BY payload ->> 'id', id DESC;
 CREATE OR REPLACE VIEW analytics.player_season_summary AS
 SELECT org_id, season_year, player_id,
  (array_agg(player_name ORDER BY event_end_date DESC, tournament_id))[1] AS player_name,
