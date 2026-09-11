@@ -152,10 +152,13 @@ def run(args):
         eligible = candidates(events, args.as_of)
         with conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT tournament_id FROM ops.slash_golf_backfill WHERE org_id='1' AND season_year=%s AND status='complete'", (str(args.year),))
+                # Failed events are structurally unsupported (e.g. match play); retrying only spends quota.
+                skip = ('complete',) if getattr(args, 'retry_failed', False) else ('complete', 'failed')
+                cur.execute("SELECT tournament_id FROM ops.slash_golf_backfill WHERE org_id='1' AND season_year=%s AND status = ANY(%s)",
+                            (str(args.year), list(skip)))
                 done = {row[0] for row in cur.fetchall()}
         pending = [event for event in eligible if event['tournId'] not in done]
-        log.info('Schedule: %d events; %d ended before %s; %d pending; %d already complete',
+        log.info('Schedule: %d events; %d ended before %s; %d pending; %d already complete or previously failed',
                  len(events), len(eligible), args.as_of, len(pending), len(eligible)-len(pending))
         if args.limit is not None:
             pending = pending[:args.limit]
@@ -200,6 +203,7 @@ def main():
     parser.add_argument('--limit', type=int, help='Maximum number of pending events to attempt.')
     parser.add_argument('--max-requests', type=int, default=60, help='Per-execution cap, not monthly usage.')
     parser.add_argument('--refresh-schedule', action='store_true')
+    parser.add_argument('--retry-failed', action='store_true', help='Also re-request events that previously failed validation.')
     args = parser.parse_args()
     if args.max_requests < 1 or (args.limit is not None and args.limit < 1):
         parser.error('Request cap and limit must be positive.')

@@ -1,5 +1,6 @@
 """Local, read-only golf dashboard. Run: python dashboard/server.py"""
 import argparse
+import gzip
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -15,10 +16,12 @@ from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parent
 load_dotenv(ROOT.parent / '.env')
+CACHE = {'signature': None, 'plain': None, 'gzip': None}
+TOURS = {'1': 'PGA TOUR', 'eur': 'DP World Tour', 'liv': 'LIV Golf', 'ntw': 'Korn Ferry Tour', 'champions-tour': 'PGA TOUR Champions'}
 
 
-def read_data():
-    conn = psycopg2.connect(
+def connect():
+    return psycopg2.connect(
         host=os.getenv('GOLF_DB_HOST', 'localhost'),
         port=os.getenv('GOLF_DB_PORT', '5433'),
         dbname=os.getenv('GOLF_DB_NAME', 'golf_data'),
@@ -27,6 +30,31 @@ def read_data():
         connect_timeout=5,
         options='-c statement_timeout=10000',
     )
+
+
+def signature():
+    # Cheap fingerprint of the analytics tables; the transform rewrites them atomically.
+    conn = connect()
+    try:
+        with conn, conn.cursor() as cur:
+            cur.execute('''SELECT (SELECT count(*) FROM analytics.player_results), (SELECT max(ingested_at) FROM analytics.player_results),
+                (SELECT count(*) FROM analytics.team_results), (SELECT max(fetched_at) FROM raw.slash_golf_schedules),
+                (SELECT max(ingested_at) FROM raw.pga_tour_player_directory)''')
+            return cur.fetchone()
+    finally:
+        conn.close()
+
+
+def payload():
+    current = signature()
+    if CACHE['signature'] != current:
+        body = json.dumps(read_data(), default=serialize, separators=(',', ':')).encode('utf-8')
+        CACHE.update(signature=current, plain=body, gzip=gzip.compress(body, 5))
+    return CACHE
+
+
+def read_data():
+    conn = connect()
     try:
         conn.set_session(readonly=True, isolation_level='REPEATABLE READ')
         with conn:
@@ -51,7 +79,11 @@ def read_data():
                 if cur.fetchone()['ready']:
                     cur.execute('SELECT player_id, country, country_code FROM analytics.player_directory WHERE country IS NOT NULL')
                     countries = {r['player_id']: {'country': r['country'], 'code': r['country_code']} for r in cur.fetchall()}
-        return {'players': players, 'teams': teams, 'summaries': summaries, 'countries': countries,
+                cur.execute("SELECT to_regclass('analytics.espn_player_countries') IS NOT NULL AS ready")
+                if cur.fetchone()['ready']:
+                    cur.execute('SELECT player_id, country, country_code FROM analytics.espn_player_countries')
+                    countries.update({r['player_id']: {'country': r['country'], 'code': r['country_code']} for r in cur.fetchall()})
+        return {'players': players, 'teams': teams, 'summaries': summaries, 'countries': countries, 'tours': TOURS,
                 'freshness': freshness, 'retrieved_at': datetime.now(timezone.utc)}
     finally:
         conn.close()
@@ -75,8 +107,12 @@ class Handler(BaseHTTPRequestHandler):
                  '/pga-tour-logo.svg': ('pga-tour-logo.svg', 'image/svg+xml')}
         if path == '/api/data':
             try:
-                body = json.dumps(read_data(), default=serialize).encode('utf-8')
-                self.respond(200, body, 'application/json')
+                cached = payload()
+                # ~70k result rows across five tours; gzip cuts the transfer roughly tenfold.
+                if 'gzip' in self.headers.get('Accept-Encoding', ''):
+                    self.respond(200, cached['gzip'], 'application/json', encoding='gzip')
+                else:
+                    self.respond(200, cached['plain'], 'application/json')
             except psycopg2.Error:
                 self.respond(503, json.dumps({'error': 'The golf database is unavailable or analytics are not ready. Start Postgres and run pipeline.py --transform-only, then retry.'}).encode(), 'application/json')
             return
@@ -84,10 +120,10 @@ class Handler(BaseHTTPRequestHandler):
             manifest = ROOT / 'assets' / 'images.json'
             self.respond(200, manifest.read_bytes() if manifest.is_file() else b'{}', 'application/json')
             return
-        if re.fullmatch(r'/assets/(headshots|logos)/\d+\.png', path) and (ROOT / path.lstrip('/')).is_file():
+        if re.fullmatch(r'/assets/(headshots/(espn-)?\d+|logos/(\d+|tour-[a-z-]+)|flags/[A-Z]{2,3})\.png', path) and (ROOT / path.lstrip('/')).is_file():
             self.respond(200, (ROOT / path.lstrip('/')).read_bytes(), 'image/png', 'public, max-age=86400')
             return
-        if re.fullmatch(r'/assets/flags/[A-Z]{3}\.svg', path) and (ROOT / path.lstrip('/')).is_file():
+        if re.fullmatch(r'/assets/flags/[A-Z]{2,3}\.svg', path) and (ROOT / path.lstrip('/')).is_file():
             self.respond(200, (ROOT / path.lstrip('/')).read_bytes(), 'image/svg+xml', 'public, max-age=86400')
             return
         if path in files:
@@ -96,9 +132,12 @@ class Handler(BaseHTTPRequestHandler):
         else:
             self.respond(404, b'Not found', 'text/plain')
 
-    def respond(self, status, body, content_type, cache='no-store'):
+    def respond(self, status, body, content_type, cache='no-store', encoding=None):
         self.send_response(status)
         self.send_header('Content-Type', content_type)
+        if encoding:
+            self.send_header('Content-Encoding', encoding)
+            self.send_header('Vary', 'Accept-Encoding')
         self.send_header('Content-Length', str(len(body)))
         self.send_header('Cache-Control', cache)
         self.send_header('X-Content-Type-Options', 'nosniff')

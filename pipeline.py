@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 
 from ingestion.backfill_slash_golf import connect, run as backfill
 from ingestion.ingest_pga_tour_players import run as ingest_player_directory
+from ingestion.ingest_espn_tours import TOURS as OTHER_TOURS, run as ingest_other_tours
 from ingestion.ingest_slash_golf import PROJECT_ROOT
 from config.logging_config import get_logger
 
@@ -18,7 +19,7 @@ def setup_database():
     try:
         with conn:
             with conn.cursor() as cur:
-                for name in ('create_staging_tables.sql', 'create_backfill_tables.sql'):
+                for name in ('create_staging_tables.sql', 'create_backfill_tables.sql', 'create_espn_tables.sql'):
                     cur.execute((PROJECT_ROOT / 'sql' / name).read_text(encoding='utf-8-sig'))
     finally:
         conn.close()
@@ -63,6 +64,15 @@ def ingest(year=2026, as_of=None, max_requests=10, refresh_schedule=False):
     if result:
         raise RuntimeError('Ingestion has failed or deferred events; inspect ingestion logs.')
     refresh_player_directory()
+    refresh_other_tours(str(year))
+
+
+def refresh_other_tours(season):
+    # ESPN tours are an addition to the PGA TOUR core; their failures must not block it.
+    try:
+        ingest_other_tours(list(OTHER_TOURS), [season])
+    except Exception as error:
+        log.warning('ESPN tour refresh skipped: %s', error)
 
 
 def refresh_player_directory():

@@ -25,3 +25,6 @@ Development milestones before the standalone repository was created. Future comm
 
 ## 2026-09-09 — Publish golf ELT pipeline, dashboards, and portfolio demo
 `93cee11`
+
+## 2026-09-10 — Rebrand dashboard as PGA Analytics with headshots, logos, and player countries
+`0e1ed6e`

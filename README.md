@@ -18,13 +18,27 @@ Verified September 10, 2026:
 
 | Dataset | Count |
 |---|---:|
-| Completed 2026 events | 37 |
-| Player-result records | 4,191 |
-| Team-result records | 74 |
-| Players in individual-event analytics | 572 |
-| Quality checks before analytics commit | 7 |
-| Passing ingestion/transformation tests | 13 |
-| Players with a country (PGA TOUR directory) | 572 of 572 |
+| Seasons loaded | 2023, 2024, 2025, 2026 (through August 30) |
+| Completed events | 192 (185 individual, 7 team) |
+| Player-result records | 22,609 |
+| Team-result records | 358 |
+| Players in individual-event analytics | 1,359 |
+| Quality checks before analytics commit | 9 |
+| Passing ingestion/transformation tests | 19 |
+| Players with a country (PGA TOUR directory) | 793 of 1,359, covering 96% of player results |
+
+**Other tours (ESPN, 2023–2026):**
+
+| Tour | Individual events | Player results | Players |
+|---|---:|---:|---:|
+| DP World Tour | 135 | 19,199 | 1,677 |
+| Korn Ferry Tour | 99 | 14,779 | 871 |
+| PGA TOUR Champions | 102 | 8,437 | 622 |
+| LIV Golf | 54 | 2,868 | 87 |
+
+All five tours: 575 individual events and 67,892 player results. Every ESPN player has a country from ESPN's own data. Team and match-play events (Hero Cup, LIV Team Championship, Champions team events) are rejected at ingestion, and 2026 events not yet final are deferred.
+
+Not loaded by design: team match play (Ryder Cup, Presidents Cup), WGC Match Play (no stroke leaderboard), and the 2025 Q-School leaderboard, which never became Official. The 2023 Grant Thornton and 2023 Q-School are still pending to preserve API quota. Players missing a country are mostly one-time starters (qualifiers, amateurs) absent from the current PGA TOUR directory.
 
 The source schedule was refreshed September 9; the latest loaded event ended August 30. Twelve scheduled events were still in the future. Counts describe this loaded dataset, not an independently verified official PGA statistics feed.
 
@@ -34,6 +48,7 @@ The source schedule was refreshed September 9; the latest loaded event ended Aug
 flowchart LR
     API[Slash Golf API] --> Python[Python ingestion]
     Directory[PGA TOUR player directory] --> Python
+    ESPN[ESPN golf data: DP World, LIV, Korn Ferry, Champions] --> Python
     Python --> Raw[Postgres: raw JSONB]
     Python --> Ops[Transactional event checkpoints]
     Raw --> SQL[SQL transformations]
@@ -47,7 +62,7 @@ flowchart LR
 
 - **Extract and load:** cache the schedule, request only pending completed events, and accept Official leaderboards. Save each event's raw records and its checkpoint in one transaction.
 - **Transform:** use completed checkpoint snapshots, extract typed fields, convert even par to zero, retain tie/withdrawal labels, and separate team scores from individual scores.
-- **Validate and publish:** rebuild derived tables and run seven checks in one transaction. Failed validation rolls back the rebuild and preserves prior analytics.
+- **Validate and publish:** rebuild derived tables and run nine checks in one transaction. Failed validation rolls back the rebuild and preserves prior analytics.
 - **Orchestrate:** Airflow runs ingestion before transformation, with a ten-request execution cap and no automatic API retries. A separate Postgres instance stores Airflow metadata.
 - **Explore:** dashboards use read-only database transactions. Dashboard refreshes spend no source API requests.
 
@@ -63,12 +78,15 @@ flowchart LR
 | `analytics.player_season_summary` | Individual-event season totals per player |
 | `raw.pga_tour_player_directory` | One PGA TOUR directory player per snapshot, in JSONB |
 | `analytics.player_directory` | Latest country and flag code per player ID |
+| `raw.espn_golf_leaderboards` | One final ESPN leaderboard per non-PGA-TOUR event, in JSONB |
+| `ops.espn_golf_backfill` | Load status per ESPN tour, season, and event |
+| `analytics.espn_player_countries` | Latest ESPN country and flag per ESPN player |
 
-Result keys use IDs rather than names. Cleaned rows retain source run IDs and raw record IDs. The independent 2024 ingestion demo and learning-script snapshots remain in raw storage but are excluded from the completed-backfill analytics.
+`analytics.player_results` holds every tour: `org_id` is `1` for the PGA TOUR (Slash Golf) or the ESPN league (`eur`, `liv`, `ntw`, `champions-tour`). ESPN player IDs are stored as `espn-<id>` so they never collide with PGA TOUR IDs; the same golfer on two tours is not yet linked. Result keys use IDs rather than names. Cleaned rows retain source run IDs and raw record IDs. The independent 2024 ingestion demo and learning-script snapshots remain in raw storage but are excluded from the completed-backfill analytics.
 
 ## Dashboards
 
-**PGA Analytics** (formerly Fairway) is the featured dashboard: season leaders, searchable/sortable player standings, tournament leaderboards, player history charts, and filtered CSV exports. Players show official PGA TOUR headshots and tournaments show their official logos, matched by ID and cached locally by `scripts/sync_images.py` (images are not committed to this repo; players without a PGA TOUR photo, mostly amateurs and qualifiers, keep an initials badge). Every player also shows a country flag. Country comes from the PGA TOUR player directory, landed as raw JSON in `raw.pga_tour_player_directory` and modeled in `analytics.player_directory` (latest snapshot, joined by player ID). The directory is parsed from the public pgatour.com/players page rather than a documented API, so a failed refresh logs a warning and keeps the last snapshot instead of blocking results ingestion. The UI uses PGA TOUR navy and red with the TOUR shield as its brand mark; it is an unofficial fan project, not affiliated with or endorsed by the PGA TOUR.
+**PGA Analytics** (formerly Fairway) is the featured dashboard: season leaders, searchable/sortable player standings, tournament leaderboards, player history charts, and filtered CSV exports. Players show official PGA TOUR headshots and tournaments show their official logos, matched by ID and cached locally by `scripts/sync_images.py` (images are not committed to this repo; players without a PGA TOUR photo, mostly amateurs and qualifiers, keep an initials badge). A Tour selector switches between the PGA TOUR, DP World Tour, LIV Golf, Korn Ferry Tour, and PGA TOUR Champions; every tab works per tour. The season picker is a checklist: select one season, any combination (for example 2023, 2024, and 2025), or all seasons, and every view recalculates from player results for that selection. The All-time tab always spans every loaded season: career leaders (wins, top 10s, starts, top-10 rate with a 25-start minimum), wins by country, lowest winning scores, best single seasons, and a sortable career table with average and best finish. Every player also shows a country flag. Country comes from the PGA TOUR player directory, landed as raw JSON in `raw.pga_tour_player_directory` and modeled in `analytics.player_directory` (latest snapshot, joined by player ID). The directory is parsed from the public pgatour.com/players page rather than a documented API, so a failed refresh logs a warning and keeps the last snapshot instead of blocking results ingestion. The UI uses PGA TOUR navy and red with the TOUR shield as its brand mark; it is an unofficial fan project, not affiliated with or endorsed by the PGA TOUR.
 
 | Version | Folder | Default / suggested port |
 |---|---|---:|
@@ -115,6 +133,12 @@ If this project already has its data, rebuild analytics **without API requests**
 
 ```powershell
 .\.venv\Scripts\python.exe pipeline.py --transform-only
+```
+
+Backfill the other tours from ESPN (free, no API key; resumable, and team or match-play events are rejected):
+
+```powershell
+.\.venv\Scripts\python.exe -m ingestion.ingest_espn_tours --seasons 2023 2024 2025 2026
 ```
 
 Refresh player countries without any Slash Golf requests (full pipeline runs do this automatically):
@@ -193,7 +217,7 @@ npm.cmd run test:dashboard
 npm.cmd run test:clubhouse
 ```
 
-PGA Analytics' check covers data counts, filtering, CSV contents, player/tournament navigation, team separation, pagination, refresh, mobile layouts, and database-error handling.
+PGA Analytics' checks (`npm run test:dashboard`) cover multi-season totals, the All-time tab, and data counts, filtering, CSV contents, player/tournament navigation, team separation, pagination, refresh, mobile layouts, and database-error handling.
 
 Run demonstration SQL:
 

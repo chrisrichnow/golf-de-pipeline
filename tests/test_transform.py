@@ -31,6 +31,12 @@ class TransformTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'player_count'):
             check_quality(self.cur)
 
+    def test_combined_team_name_fails_quality_check(self):
+        self.cur.execute("""UPDATE analytics.player_results SET player_name = 'Stevens/ Barjon'
+            WHERE raw_id = (SELECT min(raw_id) FROM analytics.player_results)""")
+        with self.assertRaisesRegex(ValueError, 'team_in_player_results'):
+            check_quality(self.cur)
+
     def test_practice_snapshot_does_not_enter_analytics(self):
         self.cur.execute('SELECT count(*) FROM analytics.completed_results')
         before = self.cur.fetchone()[0]

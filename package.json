@@ -4,7 +4,7 @@
   "private": true,
   "description": "Browser verification and demo tools for a local golf data pipeline",
   "scripts": {
-    "test:dashboard": "node dashboard/check-dashboard.cjs",
+    "test:dashboard": "node dashboard/check-dashboard.cjs && node dashboard/check-seasons.cjs",
     "test:clubhouse": "node dashboard-claude/check.cjs",
     "demo:record": "node scripts/record-demo.cjs"
   },
